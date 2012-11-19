@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from distutils.core import setup
+from setuptools import setup
 
 setup(
     name='amuspy',
@@ -14,7 +14,6 @@ setup(
     long_description=open('README.rst').read(),
     install_requires=[
         'boto>=2.6.0',
-        'distribute>=0.6.30',
         'wsgiref>=0.1.2',
     ],
     entry_points={
