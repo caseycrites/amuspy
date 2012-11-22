@@ -31,10 +31,6 @@ By default, amus will name the file the same thing on S3 as it is locally. If yo
 
     $ amus -f way_cooler_name path/to/file name_of_s3_bucket
 
-If you want to upload to a file path inside your bucket, supply the -p option::
-
-    $ amus -p path/inside/bucket path/to/file name_of_s3_bucket
-
 Tweaking Performance
 ====================
 

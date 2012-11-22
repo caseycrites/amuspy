@@ -20,7 +20,6 @@ def get_parser():
     # without creds: amus file bucket
     # with creds: amus -k key -s secret file bucket
     # override thread count: amus -t 5 file bucket
-    # path within bucket: amus -p some/path file bucket
     # new filename: amus -f different_name file bucket
 
     creds_group = OptionGroup(parser, 'Credentials Group')
@@ -28,8 +27,6 @@ def get_parser():
     creds_group.add_option('-s', '--secret', dest='secret', help='AWS secret.')
 
     file_group = OptionGroup(parser, 'File Group')
-    file_group.add_option('-p', '--path', dest='path',
-            help='Path within destination bucket.')
     file_group.add_option('-f', '--filename', dest='filename',
             help='Filename for uploaded file.')
 
