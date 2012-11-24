@@ -16,11 +16,8 @@ AWS_KEY = None
 AWS_SECRET = None
 
 def get_parser():
-    parser = OptionParser(usage='usage: %prog [options] file bucket')
-    # without creds: amus file bucket
-    # with creds: amus -k key -s secret file bucket
-    # override thread count: amus -t 5 file bucket
-    # new filename: amus -f different_name file bucket
+    parser = OptionParser(usage=('usage: %prog [-k AWS KEY -s AWS_SECRET]
+        [-f FILENAME] [-t THREADS] [-m MEGABYTES] file bucket'))
 
     creds_group = OptionGroup(parser, 'Credentials Group')
     creds_group.add_option('-k', '--key', dest='key', help='AWS key.')
@@ -49,6 +46,9 @@ def validate_input(opts, args):
     if not os.path.exists(os.path.realpath(args[0])):
         parser.error('Cannot find %s' % args[0])
 
+    if (opts.secret if opts.key else not opts.secret):
+        parser.error('Both AWS_KEY and AWS_SECRET must be specified.')
+
     if opts.key and opts.secret:
         global AWS_KEY
         AWS_KEY = opts.key
@@ -71,7 +71,7 @@ def get_bucket(bucket_name):
     conn = boto.connect_s3() if not AWS_KEY else S3Connection(AWS_KEY, AWS_SECRET)
     return conn.lookup(bucket_name)
 
-def file_parts(filename, mb_size, parts_num):
+def file_parts(filename, mb_size):
     prefix = os.path.join(os.path.dirname(filename), 's3_upload')
     if subprocess.call(['split', '-b%sm' % mb_size, filename, prefix]):
         raise Exception('Could not split file %s.' % filename)
@@ -84,13 +84,19 @@ def create_upload(id, keyname, bucket_name):
     upload.id = id
     return upload
 
+def track_upload_progress(part):
+    print 'Starting upload of %s' % part
+    def display_upload_progress(uploaded, total):
+        print '%s: %d/%d uploaded' % (part, uploaded, total)
+    return display_upload_progress
+
 @map_wrap
 def upload_part(id, keyname, bucketname, i, part):
     upload = create_upload(id, keyname, bucketname)
-    print 'Uploading %s' % part
     with open(part) as t_handle:
-        upload.upload_part_from_file(t_handle, i)
-    print 'Finished uploading %s.' % part
+        upload.upload_part_from_file(t_handle, i,
+                cb=track_upload_progress(part))
+    print 'Finished upload of %s.' % part
     os.remove(part)
 
 @contextlib.contextmanager
@@ -114,7 +120,7 @@ def upload_file(opts, args):
         for _ in pmap(upload_part,
                 ((upload.id, upload.key_name, upload.bucket_name, i, part)
                 for (i, part) in
-                enumerate(file_parts(filepath, mb_size, threads), start=1))):
+                enumerate(file_parts(filepath, mb_size), start=1))):
             pass
     upload.complete_upload()
 
