@@ -18,7 +18,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'amus = amuspy.amus:main',
+            'amus = amuspy.cli:main',
         ]
     },
 )
