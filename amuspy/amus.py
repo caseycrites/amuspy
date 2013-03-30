@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
+import argparse
 import contextlib
 import functools
 import glob
 import multiprocessing
-from optparse import OptionParser, OptionGroup
 import os
 import subprocess
 import sys
@@ -16,50 +16,59 @@ AWS_KEY = None
 AWS_SECRET = None
 
 def get_parser():
-    parser = OptionParser(usage=('usage: %prog [-k AWS KEY -s AWS_SECRET]
-        [-f FILENAME] [-t THREADS] [-m MEGABYTES] file bucket'))
+    parser = argparse.ArgumentParser(
+        description='Multipart upload files to Amazon S3.'
+    )
 
-    creds_group = OptionGroup(parser, 'Credentials Group')
-    creds_group.add_option('-k', '--key', dest='key', help='AWS key.')
-    creds_group.add_option('-s', '--secret', dest='secret', help='AWS secret.')
+    required_group = parser.add_argument_group('Required Group')
+    required_group.add_argument('filepath', help='Filepath of file to upload.')
+    required_group.add_argument('bucket', help='S3 bucket name.')
 
-    file_group = OptionGroup(parser, 'File Group')
-    file_group.add_option('-f', '--filename', dest='filename',
-            help='Filename for uploaded file.')
+    creds_group = parser.add_argument_group('Credentials Group')
+    creds_group.add_argument('-k', '--key', dest='key', help='AWS key.')
+    creds_group.add_argument(
+        '-s', '--secret', dest='secret', help='AWS secret.'
+    )
 
-    performance_group = OptionGroup(parser, 'Performance Group')
-    performance_group.add_option('-t', '--threads', dest='threads',
-            help='Number of threads to upload the file with.')
-    performance_group.add_option('-m', '--mbytes', dest='mbytes',
-            help='Size in megabytes the parts of the source file should be.')
+    file_group = parser.add_argument_group('File Group')
+    file_group.add_argument(
+        '-f', '--filename', dest='filename',
+        help='Use if you want a different filename in s3.'
+    )
 
-    parser.add_option_group(creds_group)
-    parser.add_option_group(file_group)
-    parser.add_option_group(performance_group)
+    performance_group = parser.add_argument_group('Performance Group')
+    performance_group.add_argument(
+        '-t', '--threads', dest='threads', type=int,
+        help='Number of threads to upload the file with.'
+    )
+    performance_group.add_argument(
+        '-m', '--mbytes', dest='mbytes', type=int,
+        help='Size in megabytes the parts of the source file should be.'
+    )
 
     return parser
 
-def validate_input(opts, args):
-    if len(args) != 2:
-        parser.error('You must specify a file and a bucket.')
+def validate_input(args):
+    if not os.path.exists(os.path.realpath(args.filepath)):
+        argparse.ArgumentError(args.filepath, 'No such file.')
 
-    if not os.path.exists(os.path.realpath(args[0])):
-        parser.error('Cannot find %s' % args[0])
+    if (args.secret if args.key else not args.secret):
+        argparse.ArgumentError(
+            args.key or args.secret,
+            'Both AWS_KEY and AWS_SECRET must be specified.'
+        )
 
-    if (opts.secret if opts.key else not opts.secret):
-        parser.error('Both AWS_KEY and AWS_SECRET must be specified.')
-
-    if opts.key and opts.secret:
+    if args.key and args.secret:
         global AWS_KEY
-        AWS_KEY = opts.key
+        AWS_KEY = args.key
         global AWS_SECRET
-        AWS_SECRET = opts.secret
+        AWS_SECRET = args.secret
 
 def init():
     parser = get_parser()
-    (opts, args) = parser.parse_args()
-    validate_input(opts, args)
-    return (opts, args)
+    args = parser.parse_args()
+    validate_input(args)
+    return args
 
 def map_wrap(f):
     @functools.wraps(f)
@@ -105,28 +114,25 @@ def multimap(threads):
     yield pool.imap
     pool.terminate()
 
-def upload_file(opts, args):
-    filepath = os.path.realpath(args[0])
-    keyname = opts.filename or os.path.basename(filepath)
-    bucket_name = args[1]
+def upload_file(args):
+    keyname = args.filename or os.path.basename(args.filepath)
 
-    bucket = get_bucket(bucket_name)
+    bucket = get_bucket(args.bucket)
     upload = bucket.initiate_multipart_upload(keyname)
 
-    threads = opts.threads or max(multiprocessing.cpu_count() - 1, 1)
-    mb_size = opts.mbytes or  min(
-            (os.path.getsize(filepath)/1e6) / (threads * 2.0), 50)
+    threads = args.threads or max(multiprocessing.cpu_count() - 1, 1)
+    mb_size = args.mbytes or  min(
+            (os.path.getsize(args.filepath)/1e6) / (threads * 2.0), 50)
     with multimap(threads) as pmap:
         for _ in pmap(upload_part,
                 ((upload.id, upload.key_name, upload.bucket_name, i, part)
                 for (i, part) in
-                enumerate(file_parts(filepath, mb_size), start=1))):
+                enumerate(file_parts(args.filepath, mb_size), start=1))):
             pass
     upload.complete_upload()
 
 def main():
-    (opts, args) = init()
-    upload_file(opts, args)
+    upload_file(init())
     return 0
 
 if __name__ == '__main__':
