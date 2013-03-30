@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import argparse
 import contextlib
 import functools
 import glob
@@ -14,61 +13,6 @@ from boto.s3.connection import S3Connection
 
 AWS_KEY = None
 AWS_SECRET = None
-
-def get_parser():
-    parser = argparse.ArgumentParser(
-        description='Multipart upload files to Amazon S3.'
-    )
-
-    required_group = parser.add_argument_group('Required Group')
-    required_group.add_argument('filepath', help='Filepath of file to upload.')
-    required_group.add_argument('bucket', help='S3 bucket name.')
-
-    creds_group = parser.add_argument_group('Credentials Group')
-    creds_group.add_argument('-k', '--key', dest='key', help='AWS key.')
-    creds_group.add_argument(
-        '-s', '--secret', dest='secret', help='AWS secret.'
-    )
-
-    file_group = parser.add_argument_group('File Group')
-    file_group.add_argument(
-        '-f', '--filename', dest='filename',
-        help='Use if you want a different filename in s3.'
-    )
-
-    performance_group = parser.add_argument_group('Performance Group')
-    performance_group.add_argument(
-        '-t', '--threads', dest='threads', type=int,
-        help='Number of threads to upload the file with.'
-    )
-    performance_group.add_argument(
-        '-m', '--mbytes', dest='mbytes', type=int,
-        help='Size in megabytes the parts of the source file should be.'
-    )
-
-    return parser
-
-def validate_input(args):
-    if not os.path.exists(os.path.realpath(args.filepath)):
-        argparse.ArgumentError(args.filepath, 'No such file.')
-
-    if (args.secret if args.key else not args.secret):
-        argparse.ArgumentError(
-            args.key or args.secret,
-            'Both AWS_KEY and AWS_SECRET must be specified.'
-        )
-
-    if args.key and args.secret:
-        global AWS_KEY
-        AWS_KEY = args.key
-        global AWS_SECRET
-        AWS_SECRET = args.secret
-
-def init():
-    parser = get_parser()
-    args = parser.parse_args()
-    validate_input(args)
-    return args
 
 def map_wrap(f):
     @functools.wraps(f)
@@ -114,26 +58,26 @@ def multimap(threads):
     yield pool.imap
     pool.terminate()
 
-def upload_file(args):
-    keyname = args.filename or os.path.basename(args.filepath)
+def _set_creds(key, secret):
+    if key and secret:
+        global AWS_KEY
+        AWS_KEY = key
+        global AWS_SECRET
+        AWS_SECRET = secret
 
-    bucket = get_bucket(args.bucket)
+def upload_file(filepath, bucket_name, **kwargs):
+    keyname = kwargs.get('filename') or os.path.basename(filepath)
+    threads = kwargs.get('threads') or max(multiprocessing.cpu_count() - 1, 1)
+    mb_size = kwargs.get('mb_size') or min(
+            (os.path.getsize(filepath)/1e6) / (threads * 2.0), 50)
+
+    bucket = get_bucket(bucket_name)
     upload = bucket.initiate_multipart_upload(keyname)
 
-    threads = args.threads or max(multiprocessing.cpu_count() - 1, 1)
-    mb_size = args.mbytes or  min(
-            (os.path.getsize(args.filepath)/1e6) / (threads * 2.0), 50)
     with multimap(threads) as pmap:
         for _ in pmap(upload_part,
                 ((upload.id, upload.key_name, upload.bucket_name, i, part)
                 for (i, part) in
-                enumerate(file_parts(args.filepath, mb_size), start=1))):
+                enumerate(file_parts(filepath, mb_size), start=1))):
             pass
     upload.complete_upload()
-
-def main():
-    upload_file(init())
-    return 0
-
-if __name__ == '__main__':
-    sys.exit(main())
