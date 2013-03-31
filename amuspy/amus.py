@@ -1,3 +1,4 @@
+import logging
 import os
 
 import boto
@@ -5,6 +6,8 @@ from filechunkio.filechunkio import FileChunkIO
 
 AWS_KEY = None
 AWS_SECRET = None
+
+logger = logging.getLogger(__name__)
 
 def get_bucket(bucket_name):
     return boto.connect_s3(
@@ -23,13 +26,15 @@ def file_parts(filepath, mb_size):
 
 def track_upload_progress(part, i):
     def display_upload_progress(uploaded, total):
-        print '%s, part %d: %d/%d uploaded' % (part.name, i, uploaded, total)
+        logger.info(
+            '%s, part %d: %d/%d uploaded' % (part.name, i, uploaded, total)
+        )
     return display_upload_progress
 
 def upload_part(upload, part, i):
-    print 'Starting upload of %s, part %d' % (part.name, i)
+    logger.info('Starting upload of %s, part %d' % (part.name, i))
     upload.upload_part_from_file(part, i, cb=track_upload_progress(part, i))
-    print 'Finished upload of %s, part %d' % (part.name, i)
+    logger.info('Finished upload of %s, part %d' % (part.name, i))
 
 def _set_creds(key, secret):
     if key and secret:
