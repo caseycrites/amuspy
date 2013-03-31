@@ -4,13 +4,14 @@ import subprocess
 import sys
 
 import boto
-from boto.s3.connection import S3Connection
 
 AWS_KEY = None
 AWS_SECRET = None
 
 def get_bucket(bucket_name):
-    conn = boto.connect_s3() if not AWS_KEY else S3Connection(AWS_KEY, AWS_SECRET)
+    conn = boto.connect_s3(
+        aws_access_key_id=AWS_KEY, aws_secret_access_key=AWS_SECRET
+    )
     return conn.lookup(bucket_name)
 
 def file_parts(filename, mb_size):
