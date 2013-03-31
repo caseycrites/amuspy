@@ -1,37 +1,35 @@
-import glob
 import os
-import subprocess
-import sys
 
 import boto
+from filechunkio.filechunkio import FileChunkIO
 
 AWS_KEY = None
 AWS_SECRET = None
 
 def get_bucket(bucket_name):
-    conn = boto.connect_s3(
+    return boto.connect_s3(
         aws_access_key_id=AWS_KEY, aws_secret_access_key=AWS_SECRET
-    )
-    return conn.lookup(bucket_name)
+    ).lookup(bucket_name)
 
-def file_parts(filename, mb_size):
-    prefix = os.path.join(os.path.dirname(filename), 's3_upload:')
-    if subprocess.call(['split', '-b%sm' % mb_size, filename, prefix]):
-        raise Exception('Could not split file %s.' % filename)
-    return sorted(glob.glob('%s*' % prefix))
+def file_parts(filepath, mb_size):
+    offset = 0
+    index = 1
+    filesize = os.path.getsize(filepath)
+    bytes = mb_size * 1048576
+    while offset < filesize:
+        yield FileChunkIO(filepath, offset=offset, bytes=bytes), index
+        offset += mb_size
+        index += 1
 
-def track_upload_progress(part):
-    print 'Starting upload of %s' % part
+def track_upload_progress(part, i):
     def display_upload_progress(uploaded, total):
-        print '%s: %d/%d uploaded' % (part, uploaded, total)
+        print '%s, part %d: %d/%d uploaded' % (part.name, i, uploaded, total)
     return display_upload_progress
 
-def upload_part(upload, i, part):
-    with open(part) as t_handle:
-        upload.upload_part_from_file(t_handle, i,
-                cb=track_upload_progress(part))
-    print 'Finished upload of %s.' % part
-    os.remove(part)
+def upload_part(upload, part, i):
+    print 'Starting upload of %s, part %d' % (part.name, i)
+    upload.upload_part_from_file(part, i, cb=track_upload_progress(part, i))
+    print 'Finished upload of %s, part %d' % (part.name, i)
 
 def _set_creds(key, secret):
     if key and secret:
@@ -47,9 +45,7 @@ def upload_file(filepath, bucket_name, **kwargs):
     bucket = get_bucket(bucket_name)
     upload = bucket.initiate_multipart_upload(keyname)
 
-    i = 1
-    for part in file_parts(filepath, mb_size):
-        upload_part(upload, i, part)
-        i += 1
+    for part, index in file_parts(filepath, mb_size):
+        upload_part(upload, part, index)
 
     upload.complete_upload()
