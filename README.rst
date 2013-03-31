@@ -28,3 +28,17 @@ tweaking performance
   If you want to change the size of the file parts from the 50mb default, supply the -m option with a size in megabytes::
 
     $ amus -m 100 path/to/file name_of_s3_bucket
+
+Python Usage
+============
+
+basic
+  Like the CLI, basic Python usage of amus requires just the filepath and bucket::
+
+    from amuspy import amus
+    amus.upload_file('/path/to/some/file', 'name_of_s3_bucket')
+
+extra stuff
+  You can supply the options that the CLI exposes with kwargs, such as::
+
+    amus.upload_file('/path/to/some/file', 'name_of_s3_bucket', mb_size=75, filename='wat-wat.tar')
