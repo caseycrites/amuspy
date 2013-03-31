@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name='amuspy',
-    version='0.1.1',
+    version='0.2.0',
     author='Casey W Crites',
     author_email='crites.casey@gmail.com',
     packages=['amuspy'],
@@ -14,6 +14,7 @@ setup(
     long_description=open('README.rst').read(),
     install_requires=[
         'boto>=2.6.0',
+        'filechunkio>=1.5',
         'wsgiref>=0.1.2',
     ],
     entry_points={
