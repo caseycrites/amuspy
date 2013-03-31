@@ -34,10 +34,6 @@ By default, amus will name the file the same thing on S3 as it is locally. If yo
 Tweaking Performance
 ====================
 
-If you want to change the # of threads amus uses (# of cpu cores, by default), supply the -t option::
-
-    $ amus -t 2 path/to/file name_of_s3_bucket
-
-or if the size of the parts (50mb, by default) isn't what you want, supply the -m option with a size in megabytes::
+If you want to change the size of the file parts from the 50mb default, supply the -m option with a size in megabytes::
 
     $ amus -m 100 path/to/file name_of_s3_bucket

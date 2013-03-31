@@ -28,10 +28,6 @@ def get_parser():
 
     performance_group = parser.add_argument_group('Performance Group')
     performance_group.add_argument(
-        '-t', '--threads', dest='threads', type=int,
-        help='Number of threads to upload the file with.'
-    )
-    performance_group.add_argument(
         '-m', '--mbytes', dest='mbytes', type=int,
         help='Size in megabytes the parts of the source file should be.'
     )
@@ -57,7 +53,7 @@ def main():
     args = init()
     upload_file(
         args.filepath, args.bucket,
-        filename=args.filename, threads=args.threads, mb_size=args.mbytes,
+        filename=args.filename, mb_size=args.mbytes,
         key=args.key, secret=args.secret
     )
     return 0
