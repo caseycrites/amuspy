@@ -21,7 +21,7 @@ def file_parts(filepath, mb_size):
     bytes = mb_size * 1048576
     while offset < filesize:
         yield FileChunkIO(filepath, offset=offset, bytes=bytes), index
-        offset += mb_size
+        offset += bytes
         index += 1
 
 def track_upload_progress(part, i):
