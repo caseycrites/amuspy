@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name='amuspy',
-    version='0.2.0',
+    version='0.2.1',
     author='Casey W Crites',
     author_email='crites.casey@gmail.com',
     packages=['amuspy'],
