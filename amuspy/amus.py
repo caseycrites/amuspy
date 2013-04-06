@@ -16,6 +16,9 @@ def _file_parts(filepath, mb_size):
     index = 1
     filesize = os.path.getsize(filepath)
     bytes = mb_size * 1048576
+    logger.info('%s will produce %d %d mb parts.' %
+        (filepath, (filesize/bytes)+1, mb_size)
+    )
     while offset < filesize:
         yield FileChunkIO(filepath, offset=offset, bytes=bytes), index
         offset += bytes
